@@ -1,0 +1,2 @@
+[gargleblaster]
+gargleblaster.space ansible_user=admin ansible_port=22

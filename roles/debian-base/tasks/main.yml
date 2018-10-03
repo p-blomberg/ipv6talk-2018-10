@@ -1,0 +1,34 @@
+---
+- name: install aptitude
+  apt: name=aptitude
+
+- name: initial apt package upgrade
+  apt: upgrade=yes update_cache=yes cache_valid_time=7200
+
+#- name: install basic tools
+#apt: name=openssh-server,openssh-client,less,bzip2,zsh,vim,vim-nox,make,strace,screen,lsb-release,sudo,ntp,locales,ca-certificates,bash-completion,bind9-host,curl,git,rsync,file,lsof,debian-goodies,ngrep,aptitude,unzip,dbus,dnsutils,apt-listchanges,apt-transport-https,manpages,man-db,traceroute,net-tools
+
+- name: fix locales
+  # because ansible module locale_gen is broken. https://github.com/ansible/ansible-modules-extras/issues/425
+  # copy instead of template because sometimes /etc/locale.gen is a symlink to /usr/share/i18n/SUPPORTED which must die!
+  # (template does not support follow=no)
+  copy: src=locale.gen dest=/etc/locale.gen mode=0644 owner=root group=root follow=no
+  notify: re-generate locales
+  tags: locales
+
+- meta: flush_handlers
+
+- name: ensure ssh is configured
+  lineinfile:
+    dest: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    insertafter: "{{ item.insertafter }}"
+  with_items:
+    - regexp: "^PermitRootLogin "
+      line: "PermitRootLogin no"
+      insertafter: "^LoginGraceTime"
+    - regexp: "^#?UseDNS"
+      line: "UseDNS no"
+      insertafter: EOF
+  notify: restart ssh

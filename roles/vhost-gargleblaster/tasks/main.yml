@@ -1,0 +1,69 @@
+---
+- name: setup http vhost
+  copy: src=vhost-http.conf dest=/etc/nginx/sites-enabled/http-gargleblaster.space.conf
+  notify: restart nginx
+
+- meta: flush_handlers
+
+- name: enable stretch-backports
+  apt_repository: repo='deb http://ftp.se.debian.org/debian stretch-backports main contrib non-free' state=present update_cache=yes
+
+- name: install dehydrated from stretch-backports
+  apt: name=dehydrated state=latest default_release=stretch-backports
+
+- name: add domains to dehydrated
+  lineinfile:
+    dest: /etc/dehydrated/domains.txt
+    regexp: "^gargleblaster.space"
+    line: "gargleblaster.space www.gargleblaster.space"
+    create: yes
+
+- name: add user for dehydrated
+  user: name=dehydrated system=yes
+
+- name: change owner of dehydrated folders
+  file:
+    dest: /var/lib/dehydrated
+    state: directory
+    owner: dehydrated
+    group: root
+    recurse: yes
+
+- name: ask dehydrated to register account with Let's Encrypt
+  become_user: dehydrated
+  command: /usr/bin/dehydrated --register --accept-terms
+  args:
+    creates: /var/lib/dehydrated/accounts
+
+- name: run dehydrated
+  become_user: dehydrated
+  command: dehydrated -c
+  notify: restart nginx
+
+- name: add cron job for dehydrated
+  cron:
+    name: run-dehydrated
+    user: dehydrated
+    job: dehydrated -c
+    weekday: 1
+    hour: 19
+    minute: 0
+
+- name: add cron job to reload nginx after dehydrated
+  cron:
+    name: reload-nginx
+    user: root
+    job: systemctl reload nginx.service
+    weekday: 1
+    hour: 19
+    minute: 30
+
+- name: create site directory
+  file: dest=/opt/gargleblaster.space/public state=directory recurse=yes
+
+- name: deploy site
+  copy: src=index.php dest=/opt/gargleblaster.space/public/index.php
+
+- name: setup https vhost
+  copy: src=vhost-https.conf dest=/etc/nginx/sites-enabled/https-gargleblaster.space.conf
+  notify: restart nginx

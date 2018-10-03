@@ -1,0 +1,22 @@
+---
+- name: make sure apache is not installed
+  apt: name=apache2,apache2-bin,apache2-data,apache2-utils,libapache2-mod-php state=absent
+
+- name: install nginx
+  apt: name=nginx-full state=installed
+
+- name: generate dhparams
+  command: "openssl dhparam -out /etc/nginx/dhparams.pem 2048"
+  args:
+    creates: /etc/nginx/dhparams.pem
+
+- name: chmod dhparams.pem
+  file:
+    dest: /etc/nginx/dhparams.pem
+    owner: root
+    group: root
+    mode: 0600
+
+- name: ensure nginx.conf is correct
+  template: src=nginx.conf.j2 dest=/etc/nginx/nginx.conf
+  notify: restart nginx

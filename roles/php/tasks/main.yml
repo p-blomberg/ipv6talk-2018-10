@@ -1,0 +1,15 @@
+---
+- name: install php
+  apt: name=php7.0-fpm,php7.0-cli,php7.0-curl,php7.0-gd,php7.0-intl,php7.0-json,php7.0-mbstring,php7.0-mysql
+  notify: restart php
+
+- name: configure php-fpm
+  lineinfile:
+    dest: /etc/php/7.0/fpm/pool.d/www.conf
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  notify: restart php
+  with_items:
+  - { regexp: "catch_workers_output", line: "catch_workers_output = yes" }
+  - { regexp: "php_admin_value[error_log]", line: "php_admin_value[error_log] = /var/log/fpm-php.www.log" }
+
